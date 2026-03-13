@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model appointment {
+  id        Int      @id @default(autoincrement())
+  patientId Int
+  doctorId  Int
+  date      DateTime
+  time      String
+  reason    String
+  status    String   @default("Pending")
+  doctor    doctor   @relation(fields: [doctorId], references: [id], map: "Appointment_doctorId_fkey")
+  patient   patient  @relation(fields: [patientId], references: [id], map: "Appointment_patientId_fkey")
+
+  @@index([doctorId], map: "Appointment_doctorId_fkey")
+  @@index([patientId], map: "Appointment_patientId_fkey")
+}
+
+model doctor {
+  id                 Int                  @id @default(autoincrement())
+  name               String
+  specialization     String
+  contact            String
+  experience         Int
+  salary             Float
+  appointment        appointment[]
+  doctoravailability doctoravailability[]
+}
+
+model doctoravailability {
+  id           Int    @id @default(autoincrement())
+  doctorId     Int
+  dayOfWeek    String
+  startTime    String
+  endTime      String
+  slotDuration Int    @default(30)
+  doctor       doctor @relation(fields: [doctorId], references: [id], map: "DoctorAvailability_doctorId_fkey")
+
+  @@index([doctorId], map: "DoctorAvailability_doctorId_fkey")
+}
+
+model labreport {
+  id        Int      @id @default(autoincrement())
+  patientId Int
+  testId    Int
+  result    String?  @db.Text
+  date      DateTime @default(now())
+  status    String   @default("Pending")
+  patient   patient  @relation(fields: [patientId], references: [id], map: "LabReport_patientId_fkey")
+  labtest   labtest  @relation(fields: [testId], references: [id], map: "LabReport_testId_fkey")
+
+  @@index([patientId], map: "LabReport_patientId_fkey")
+  @@index([testId], map: "LabReport_testId_fkey")
+}
+
+model labtest {
+  id          Int         @id @default(autoincrement())
+  name        String      @unique(map: "LabTest_name_key")
+  price       Float
+  description String?
+  labreport   labreport[]
+}
+
+model medicalrecord {
+  id        Int      @id @default(autoincrement())
+  patientId Int
+  diagnosis String
+  treatment String
+  date      DateTime @default(now())
+  patient   patient  @relation(fields: [patientId], references: [id], map: "MedicalRecord_patientId_fkey")
+
+  @@index([patientId], map: "MedicalRecord_patientId_fkey")
+}
+
+model patient {
+  id            Int             @id @default(autoincrement())
+  name          String
+  age           Int
+  gender        String
+  contact       String
+  address       String
+  joiningDate   DateTime        @default(now())
+  userId        Int             @unique(map: "Patient_userId_key")
+  appointment   appointment[]
+  labreport     labreport[]
+  medicalrecord medicalrecord[]
+  prescription  prescription[]
+  bill          bill[]
+  user          user            @relation(fields: [userId], references: [id], map: "Patient_userId_fkey")
+}
+
+model user {
+  id       Int       @id @default(autoincrement())
+  email    String    @unique(map: "User_email_key")
+  password String
+  role     user_role @default(PATIENT)
+  patient  patient?
+}
+
+model medicine {
+  id          Int                 @id @default(autoincrement())
+  name        String              @unique
+  category    String
+  stock       Int                 @default(0)
+  unitPrice   Float
+  expiryDate  DateTime
+  description String?             @db.Text
+  items       prescription_item[]
+}
+
+model prescription {
+  id            Int                 @id @default(autoincrement())
+  appointmentId Int?                @unique
+  patientId     Int
+  date          DateTime            @default(now())
+  notes         String?             @db.Text
+  status        String              @default("Pending") // Pending, Dispensed
+  patient       patient             @relation(fields: [patientId], references: [id])
+  items         prescription_item[]
+}
+
+model prescription_item {
+  id             Int          @id @default(autoincrement())
+  prescriptionId Int
+  medicineId     Int
+  dosage         String
+  duration       String
+  quantity       Int
+  prescription   prescription @relation(fields: [prescriptionId], references: [id])
+  medicine       medicine     @relation(fields: [medicineId], references: [id])
+}
+
+model bill {
+  id          Int      @id @default(autoincrement())
+  patientId   Int
+  amount      Float
+  date        DateTime @default(now())
+  status      String   @default("Unpaid")
+  description String?  @db.Text
+  items       Json?
+  patient     patient  @relation(fields: [patientId], references: [id])
+}
+
+enum user_role {
+  ADMIN
+  PATIENT
+}
